@@ -15,6 +15,11 @@ export default function Login() {
   const [message, setMessage] = useState('')
   const [messageType, setMessageType] = useState<MessageType>('info')
 
+  const appUrl = new URL(
+    import.meta.env.BASE_URL,
+    window.location.origin,
+  ).toString()
+
   useEffect(() => {
     setMessage('')
   }, [mode])
@@ -29,7 +34,13 @@ export default function Login() {
     const result =
       mode === 'login'
         ? await supabase.auth.signInWithPassword({ email, password })
-        : await supabase.auth.signUp({ email, password })
+        : await supabase.auth.signUp({
+            email,
+            password,
+            options: {
+              emailRedirectTo: appUrl,
+            },
+          })
 
     if (result.error) {
       setMessageType('error')
@@ -45,7 +56,9 @@ export default function Login() {
   async function google() {
     await supabase.auth.signInWithOAuth({
       provider: 'google',
-      options: { redirectTo: window.location.origin },
+      options: {
+        redirectTo: appUrl,
+      },
     })
   }
 
