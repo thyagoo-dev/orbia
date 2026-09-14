@@ -1,13 +1,15 @@
 import { useEffect, useState } from 'react'
 import { Navigate } from 'react-router-dom'
-import { ArrowRight, CalendarDays, CheckCircle2, Orbit, ReceiptText } from 'lucide-react'
+import { ArrowRight, CalendarDays, CheckCircle2, Moon, Orbit, ReceiptText, Sun } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/contexts/AuthContext'
+import { useTheme } from '@/contexts/ThemeContext'
 
 type MessageType = 'error' | 'success' | 'info'
 
 export default function Login() {
   const { user, loading } = useAuth()
+  const { theme, toggleTheme } = useTheme()
   const [mode, setMode] = useState<'login' | 'signup'>('login')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -15,10 +17,7 @@ export default function Login() {
   const [message, setMessage] = useState('')
   const [messageType, setMessageType] = useState<MessageType>('info')
 
-  const appUrl = new URL(
-    import.meta.env.BASE_URL,
-    window.location.origin,
-  ).toString()
+  const appUrl = new URL(import.meta.env.BASE_URL, window.location.origin).toString()
 
   useEffect(() => {
     setMessage('')
@@ -37,9 +36,7 @@ export default function Login() {
         : await supabase.auth.signUp({
             email,
             password,
-            options: {
-              emailRedirectTo: appUrl,
-            },
+            options: { emailRedirectTo: appUrl },
           })
 
     if (result.error) {
@@ -56,14 +53,21 @@ export default function Login() {
   async function google() {
     await supabase.auth.signInWithOAuth({
       provider: 'google',
-      options: {
-        redirectTo: appUrl,
-      },
+      options: { redirectTo: appUrl },
     })
   }
 
   return (
-    <main className="min-h-screen bg-app p-4 sm:p-6">
+    <main className="relative min-h-screen bg-app p-4 sm:p-6">
+      <button
+        type="button"
+        className="icon-button absolute right-5 top-5 z-20"
+        onClick={toggleTheme}
+        aria-label={theme === 'dark' ? 'Ativar modo claro' : 'Ativar modo escuro'}
+        title={theme === 'dark' ? 'Modo claro' : 'Modo escuro'}
+      >
+        {theme === 'dark' ? <Sun size={17} /> : <Moon size={17} />}
+      </button>
       <div className="mx-auto grid min-h-[calc(100vh-3rem)] max-w-6xl overflow-hidden rounded-[30px] border border-line bg-white shadow-2xl shadow-[#172033]/10 lg:grid-cols-[1.05fr_.95fr]">
         <section className="hidden bg-[#181b2f] p-10 text-white lg:flex lg:flex-col lg:justify-between">
           <div className="flex items-center gap-3">

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Check, CheckCircle2, Plus } from 'lucide-react'
+import { Check, CheckCircle2, Link2, Paperclip, Plus } from 'lucide-react'
 import { format, isPast, isToday } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { supabase } from '@/lib/supabase'
@@ -16,11 +16,10 @@ export default function RemindersPanel() {
 
   const load = useCallback(async () => {
     if (!user) return
-
     setLoading(true)
     const { data, error } = await supabase
       .from('reminders')
-      .select('*')
+      .select('*, resources(*)')
       .order('completed')
       .order('due_at', { ascending: true, nullsFirst: false })
       .limit(20)
@@ -35,12 +34,16 @@ export default function RemindersPanel() {
 
   useEffect(() => {
     if (!user) return
-
     const channel = supabase
       .channel(`reminders-${user.id}`)
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'reminders', filter: `user_id=eq.${user.id}` },
+        () => void load(),
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'resources', filter: `user_id=eq.${user.id}` },
         () => void load(),
       )
       .subscribe()
@@ -74,7 +77,6 @@ export default function RemindersPanel() {
             Lembretes <span className="ml-1 text-xs font-bold text-muted">{pending}</span>
           </h2>
         </div>
-
         <button
           className="icon-button"
           onClick={() => {
@@ -100,6 +102,8 @@ export default function RemindersPanel() {
           visible.map(reminder => {
             const due = reminder.due_at ? new Date(reminder.due_at) : null
             const late = due && !reminder.completed && isPast(due) && !isToday(due)
+            const fileCount = (reminder.resources ?? []).filter(resource => resource.kind === 'file').length
+            const linkCount = (reminder.resources ?? []).filter(resource => resource.kind === 'link').length
 
             return (
               <div
@@ -108,7 +112,7 @@ export default function RemindersPanel() {
                   setEditing(reminder)
                   setOpen(true)
                 }}
-                className="flex cursor-pointer items-start gap-3 rounded-2xl p-2.5 transition hover:bg-[#f8f9fb]"
+                className="list-row flex cursor-pointer items-start gap-3 rounded-2xl p-2.5 transition"
               >
                 <button
                   onClick={event => {
@@ -116,9 +120,7 @@ export default function RemindersPanel() {
                     void toggle(reminder)
                   }}
                   className={`mt-0.5 grid h-7 w-7 shrink-0 place-items-center rounded-full border ${
-                    reminder.completed
-                      ? 'border-success bg-success text-white'
-                      : 'border-line bg-white text-transparent'
+                    reminder.completed ? 'border-success bg-success text-white' : 'surface border-line text-transparent'
                   }`}
                   aria-label={reminder.completed ? 'Marcar como pendente' : 'Concluir lembrete'}
                 >
@@ -126,11 +128,7 @@ export default function RemindersPanel() {
                 </button>
 
                 <div className="min-w-0 flex-1">
-                  <p
-                    className={`truncate text-sm font-extrabold ${
-                      reminder.completed ? 'text-muted line-through' : 'text-ink'
-                    }`}
-                  >
+                  <p className={`truncate text-sm font-extrabold ${reminder.completed ? 'text-muted line-through' : 'text-ink'}`}>
                     {reminder.title}
                   </p>
                   <p className={`mt-1 text-[11px] font-semibold ${late ? 'text-danger' : 'text-muted'}`}>
@@ -141,17 +139,17 @@ export default function RemindersPanel() {
                       : 'Sem prazo'}{' '}
                     · {reminder.priority === 'high' ? 'Alta' : reminder.priority === 'low' ? 'Baixa' : 'Média'}
                   </p>
+                  {(fileCount > 0 || linkCount > 0) && (
+                    <p className="mt-1 flex items-center gap-2 text-[10px] font-bold text-muted">
+                      {fileCount > 0 && <span className="inline-flex items-center gap-1"><Paperclip size={10} />{fileCount}</span>}
+                      {linkCount > 0 && <span className="inline-flex items-center gap-1"><Link2 size={10} />{linkCount}</span>}
+                    </p>
+                  )}
                 </div>
 
-                <span
-                  className={`mt-2 h-2 w-2 shrink-0 rounded-full ${
-                    reminder.priority === 'high'
-                      ? 'bg-danger'
-                      : reminder.priority === 'medium'
-                        ? 'bg-warning'
-                        : 'bg-[#9aa4b2]'
-                  }`}
-                />
+                <span className={`mt-2 h-2 w-2 shrink-0 rounded-full ${
+                  reminder.priority === 'high' ? 'bg-danger' : reminder.priority === 'medium' ? 'bg-warning' : 'bg-[#9aa4b2]'
+                }`} />
               </div>
             )
           })

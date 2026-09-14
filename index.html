@@ -5,6 +5,21 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="theme-color" content="#f6f7fb" />
     <meta name="description" content="Orbia — agenda, contas e lembretes em um só lugar." />
+    <script>
+      ;(() => {
+        try {
+          const stored = localStorage.getItem('orbia-theme')
+          const systemDark = window.matchMedia('(prefers-color-scheme: dark)').matches
+          const theme = stored === 'dark' || stored === 'light' ? stored : systemDark ? 'dark' : 'light'
+          document.documentElement.dataset.theme = theme
+          document.documentElement.style.colorScheme = theme
+          const meta = document.querySelector('meta[name="theme-color"]')
+          if (meta) meta.setAttribute('content', theme === 'dark' ? '#0b0e14' : '#f6f7fb')
+        } catch {
+          // The app still starts in light mode if storage is unavailable.
+        }
+      })()
+    </script>
     <title>Orbia</title>
   </head>
   <body>

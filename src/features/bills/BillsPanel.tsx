@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { AlertTriangle, Check, ChevronLeft, ChevronRight, CircleDollarSign, Paperclip, Plus } from 'lucide-react'
+import { AlertTriangle, Check, ChevronLeft, ChevronRight, CircleDollarSign, ListTree, Paperclip, Plus } from 'lucide-react'
 import {
   addMonths,
   endOfMonth,
@@ -16,6 +16,7 @@ import type { Bill, BillInstallment } from '@/types'
 import BillModal from './BillModal'
 import PaymentModal from './PaymentModal'
 import ReceiptModal from './ReceiptModal'
+import FinanceModal from './FinanceModal'
 import { paymentMethodLabel } from './constants'
 
 type Filter = 'due' | 'payments' | 'pending' | 'upcoming' | 'review'
@@ -46,6 +47,7 @@ export default function BillsPanel() {
   const [bills, setBills] = useState<Bill[]>([])
   const [loading, setLoading] = useState(true)
   const [open, setOpen] = useState(false)
+  const [financeOpen, setFinanceOpen] = useState(false)
   const [editing, setEditing] = useState<Bill | null>(null)
   const [receipt, setReceipt] = useState<BillInstallment | null>(null)
   const [payment, setPayment] = useState<PaymentTarget | null>(null)
@@ -59,7 +61,6 @@ export default function BillsPanel() {
     const { error: recurrenceError } = await supabase.rpc('materialize_monthly_bill_installments', {
       p_months_ahead: 2,
     })
-
     if (recurrenceError) console.error('Falha ao atualizar recorrências mensais:', recurrenceError)
 
     const { data, error } = await supabase
@@ -77,35 +78,20 @@ export default function BillsPanel() {
 
   useEffect(() => {
     if (!user) return
-    const c = supabase
+    const channel = supabase
       .channel(`bills-${user.id}`)
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'bills', filter: `user_id=eq.${user.id}` },
-        () => void load(),
-      )
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'bill_installments', filter: `user_id=eq.${user.id}` },
-        () => void load(),
-      )
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'attachments', filter: `user_id=eq.${user.id}` },
-        () => void load(),
-      )
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'bills', filter: `user_id=eq.${user.id}` }, () => void load())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'bill_installments', filter: `user_id=eq.${user.id}` }, () => void load())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'attachments', filter: `user_id=eq.${user.id}` }, () => void load())
       .subscribe()
 
     return () => {
-      void supabase.removeChannel(c)
+      void supabase.removeChannel(channel)
     }
   }, [user, load])
 
   const allRows = useMemo(
-    () =>
-      bills
-        .flatMap(b => (b.bill_installments ?? []).map(inst => ({ bill: b, inst })))
-        .sort((a, b) => a.inst.due_date.localeCompare(b.inst.due_date)),
+    () => bills.flatMap(bill => (bill.bill_installments ?? []).map(inst => ({ bill, inst }))).sort((a, b) => a.inst.due_date.localeCompare(b.inst.due_date)),
     [bills],
   )
 
@@ -125,41 +111,32 @@ export default function BillsPanel() {
           inst.status === 'paid' &&
           inst.payment_date_confirmed === true &&
           !!inst.paid_at &&
-          isSameMonth(parseISO(inst.paid_at!), period),
+          isSameMonth(parseISO(inst.paid_at), period),
         )
         .slice()
         .sort((a, b) => (b.inst.paid_at ?? '').localeCompare(a.inst.paid_at ?? ''))
     }
 
-    if (filter === 'pending') {
-      return allRows.filter(({ inst }) => inst.status === 'pending' && inst.due_date <= periodEnd)
-    }
-
-    if (filter === 'upcoming') {
-      return allRows.filter(({ inst }) => inst.status === 'pending' && inst.due_date > periodEnd)
-    }
-
+    if (filter === 'pending') return allRows.filter(({ inst }) => inst.status === 'pending' && inst.due_date <= periodEnd)
+    if (filter === 'upcoming') return allRows.filter(({ inst }) => inst.status === 'pending' && inst.due_date > periodEnd)
     return allRows.filter(({ inst }) => isSameMonth(parseISO(inst.due_date), period))
   }, [allRows, filter, period])
 
   const paidInPeriod = useMemo(
-    () =>
-      allRows
-        .map(({ inst }) => inst)
-        .filter(inst => inst.status === 'paid' && inst.payment_date_confirmed === true && !!inst.paid_at && isSameMonth(parseISO(inst.paid_at!), period))
-        .reduce((sum, inst) => sum + Number(inst.paid_amount ?? inst.amount), 0),
+    () => allRows
+      .map(({ inst }) => inst)
+      .filter(inst => inst.status === 'paid' && inst.payment_date_confirmed === true && !!inst.paid_at && isSameMonth(parseISO(inst.paid_at), period))
+      .reduce((sum, inst) => sum + Number(inst.paid_amount ?? inst.amount), 0),
     [allRows, period],
   )
 
   const openInPeriod = useMemo(
-    () =>
-      allRows
-        .map(({ inst }) => inst)
-        .filter(inst => inst.status === 'pending' && isSameMonth(parseISO(inst.due_date), period))
-        .reduce((sum, inst) => sum + Number(inst.amount), 0),
+    () => allRows
+      .map(({ inst }) => inst)
+      .filter(inst => inst.status === 'pending' && isSameMonth(parseISO(inst.due_date), period))
+      .reduce((sum, inst) => sum + Number(inst.amount), 0),
     [allRows, period],
   )
-
 
   const reviewCount = useMemo(
     () => allRows.filter(({ inst }) => inst.status === 'paid' && inst.payment_date_confirmed !== true).length,
@@ -183,16 +160,12 @@ export default function BillsPanel() {
   }
 
   function rowPrimaryMeta(bill: Bill, inst: BillInstallment) {
-    if (bill.billing_type === 'installment') {
-      return `Parcela ${inst.number}/${bill.installment_count} · ${paidCountFor(bill)}/${bill.installment_count} pagas`
-    }
-
+    if (bill.billing_type === 'installment') return `Parcela ${inst.number}/${bill.installment_count} · ${paidCountFor(bill)}/${bill.installment_count} pagas`
     if (bill.billing_type === 'monthly') {
       if (bill.recurrence_active === false) return 'Mensal · encerrada'
       if (bill.recurrence_end_date) return `Mensal · até ${shortDate(bill.recurrence_end_date)}`
       return 'Mensal'
     }
-
     return bill.category
   }
 
@@ -205,7 +178,6 @@ export default function BillsPanel() {
     } else if (inst.status === 'paid' && inst.paid_at) {
       parts.push(`Pago ${shortDate(inst.paid_at)}`)
       parts.push(`vence ${shortDate(inst.due_date)}`)
-
       if (inst.paid_at < inst.due_date) parts.push('adiantado')
       else if (inst.paid_at > inst.due_date) parts.push('após o vencimento')
     } else if (isPastDate(inst.due_date)) {
@@ -216,56 +188,51 @@ export default function BillsPanel() {
 
     const method = paymentMethodLabel(inst.payment_method ?? bill.default_payment_method)
     if (method) parts.push(method)
-
     return parts.join(' · ')
   }
 
   const emptyTitle =
-    filter === 'review'
-      ? 'Nenhum pagamento para revisar'
-      : filter === 'payments'
-        ? 'Nenhum pagamento neste período'
-      : filter === 'pending'
-        ? 'Nenhuma pendência até este período'
-        : filter === 'upcoming'
-          ? 'Nenhuma cobrança futura'
-          : 'Nenhum vencimento neste período'
+    filter === 'review' ? 'Nenhum pagamento para revisar'
+      : filter === 'payments' ? 'Nenhum pagamento neste período'
+        : filter === 'pending' ? 'Nenhuma pendência até este período'
+          : filter === 'upcoming' ? 'Nenhuma cobrança futura'
+            : 'Nenhum vencimento neste período'
 
   const emptyDescription =
-    filter === 'review'
-      ? 'Todas as datas de pagamento do histórico já foram confirmadas.'
-      : filter === 'payments'
-        ? 'Pagamentos são organizados pela data real em que você pagou.'
-      : filter === 'pending'
-        ? 'Não há cobranças em aberto até o fim do período selecionado.'
-        : filter === 'upcoming'
-          ? 'Não há cobranças pendentes após o período selecionado.'
-          : 'Cobranças são organizadas pelo mês de vencimento.'
+    filter === 'review' ? 'Todas as datas de pagamento do histórico já foram confirmadas.'
+      : filter === 'payments' ? 'Pagamentos são organizados pela data real em que você pagou.'
+        : filter === 'pending' ? 'Não há cobranças em aberto até o fim do período selecionado.'
+          : filter === 'upcoming' ? 'Não há cobranças pendentes após o período selecionado.'
+            : 'Cobranças são organizadas pelo mês de vencimento.'
 
   return (
     <div className="bills-card card overflow-hidden">
       <header className="flex items-center justify-between px-5 py-4">
-        <div>
+        <button type="button" className="group text-left" onClick={() => setFinanceOpen(true)} title="Abrir central financeira">
           <p className="text-xs font-bold uppercase tracking-[.16em] text-brand">Financeiro</p>
-          <h2 className="mt-1 text-lg font-black text-ink">Contas</h2>
-        </div>
+          <span className="mt-1 flex items-center gap-2 text-lg font-black text-ink">
+            Contas
+            <ListTree size={15} className="text-muted transition group-hover:text-brand" />
+          </span>
+        </button>
         <button
           className="icon-button"
           onClick={() => {
             setEditing(null)
             setOpen(true)
           }}
+          aria-label="Nova conta"
         >
           <Plus size={19} />
         </button>
       </header>
 
       <div className="grid grid-cols-2 gap-2 px-5 pb-3">
-        <div className="rounded-2xl bg-[#effaf6] p-3">
+        <div className="metric-paid rounded-2xl p-3">
           <p className="text-[11px] font-bold text-muted">Pago em {periodCardLabel(period)}</p>
           <p className="mt-1 text-base font-black text-success">{brl.format(paidInPeriod)}</p>
         </div>
-        <div className="rounded-2xl bg-[#fff8e8] p-3">
+        <div className="metric-open rounded-2xl p-3">
           <p className="text-[11px] font-bold text-muted">Em aberto em {periodCardLabel(period)}</p>
           <p className="mt-1 text-base font-black text-warning">{brl.format(openInPeriod)}</p>
         </div>
@@ -276,11 +243,7 @@ export default function BillsPanel() {
           <button
             type="button"
             onClick={() => setFilter('review')}
-            className={`flex w-full items-center gap-2 rounded-xl border px-3 py-2 text-left transition ${
-              filter === 'review'
-                ? 'border-[#d8c26a] bg-[#fff8df]'
-                : 'border-[#efe2a4] bg-[#fffaf0] hover:bg-[#fff6d9]'
-            }`}
+            className={`review-banner flex w-full items-center gap-2 rounded-xl border px-3 py-2 text-left transition ${filter === 'review' ? 'is-active' : ''}`}
           >
             <AlertTriangle size={15} className="shrink-0 text-warning" />
             <span className="min-w-0 flex-1 text-[10px] font-bold text-ink">
@@ -292,38 +255,21 @@ export default function BillsPanel() {
       )}
 
       <div className="px-5 pb-3">
-        <div className="flex items-center justify-between rounded-xl border border-line bg-white px-1 py-1">
-          <button
-            type="button"
-            className="grid h-8 w-8 place-items-center rounded-lg text-muted transition hover:bg-[#f4f5f8] hover:text-ink"
-            onClick={() => setPeriod(current => addMonths(current, -1))}
-            aria-label="Mês anterior"
-          >
+        <div className="surface flex items-center justify-between rounded-xl border border-line px-1 py-1">
+          <button type="button" className="nav-mini" onClick={() => setPeriod(current => addMonths(current, -1))} aria-label="Mês anterior">
             <ChevronLeft size={16} />
           </button>
-
-          <button
-            type="button"
-            className="min-w-0 flex-1 truncate px-2 text-center text-xs font-extrabold text-ink"
-            onClick={() => setPeriod(startOfMonth(new Date()))}
-            title="Voltar para o mês atual"
-          >
+          <button type="button" className="min-w-0 flex-1 truncate px-2 text-center text-xs font-extrabold text-ink" onClick={() => setPeriod(startOfMonth(new Date()))} title="Voltar para o mês atual">
             {periodLabel(period)}
           </button>
-
-          <button
-            type="button"
-            className="grid h-8 w-8 place-items-center rounded-lg text-muted transition hover:bg-[#f4f5f8] hover:text-ink"
-            onClick={() => setPeriod(current => addMonths(current, 1))}
-            aria-label="Próximo mês"
-          >
+          <button type="button" className="nav-mini" onClick={() => setPeriod(current => addMonths(current, 1))} aria-label="Próximo mês">
             <ChevronRight size={16} />
           </button>
         </div>
       </div>
 
       <div className="px-5 pb-3">
-        <div className="grid grid-cols-4 rounded-xl bg-[#f3f5f8] p-1">
+        <div className="segmented-control grid grid-cols-4 rounded-xl p-1">
           {([
             ['due', 'Vencem'],
             ['payments', 'Pagos'],
@@ -334,9 +280,7 @@ export default function BillsPanel() {
               key={value}
               type="button"
               onClick={() => setFilter(value)}
-              className={`rounded-lg px-1 py-2 text-[10px] font-extrabold transition ${
-                filter === value ? 'bg-white text-ink shadow-sm' : 'text-muted hover:text-ink'
-              }`}
+              className={`rounded-lg px-1 py-2 text-[10px] font-extrabold transition ${filter === value ? 'segmented-active text-ink shadow-sm' : 'text-muted hover:text-ink'}`}
             >
               {label}
             </button>
@@ -362,21 +306,21 @@ export default function BillsPanel() {
                   setEditing(bill)
                   setOpen(true)
                 }}
-                className="group flex cursor-pointer items-center gap-3 rounded-2xl p-2.5 transition hover:bg-[#f8f9fb]"
+                className="list-row group flex cursor-pointer items-center gap-3 rounded-2xl p-2.5 transition"
               >
                 <button
-                  onClick={e => {
-                    e.stopPropagation()
+                  onClick={event => {
+                    event.stopPropagation()
                     setPayment({ bill, installment: inst })
                   }}
                   className={`grid h-7 w-7 shrink-0 place-items-center rounded-full border ${
                     inst.status === 'paid' && inst.payment_date_confirmed !== true
-                      ? 'border-[#d8b647] bg-[#fff8df] text-warning'
+                      ? 'payment-review'
                       : inst.status === 'paid'
                         ? 'border-success bg-success text-white'
                         : isPastDate(inst.due_date)
-                        ? 'border-danger bg-[#fff0f1] text-transparent'
-                        : 'border-[#e5c45f] bg-[#fff9df] text-transparent'
+                          ? 'payment-late text-transparent'
+                          : 'payment-pending text-transparent'
                   }`}
                   title={inst.status === 'paid' && inst.payment_date_confirmed !== true ? 'Revisar data do pagamento' : inst.status === 'paid' ? 'Ver pagamento' : 'Registrar pagamento'}
                 >
@@ -384,24 +328,16 @@ export default function BillsPanel() {
                 </button>
 
                 <div className="min-w-0 flex-1">
-                  <p
-                    className={`truncate text-sm font-extrabold ${
-                      inst.status === 'paid' ? 'text-muted line-through' : 'text-ink'
-                    }`}
-                  >
-                    {bill.description}
-                  </p>
+                  <p className={`truncate text-sm font-extrabold ${inst.status === 'paid' ? 'text-muted line-through' : 'text-ink'}`}>{bill.description}</p>
                   <p className="mt-0.5 truncate text-[10px] font-semibold text-muted">{rowPrimaryMeta(bill, inst)}</p>
                   <p className="mt-0.5 truncate text-[10px] text-muted">{rowPaymentMeta(bill, inst)}</p>
                 </div>
 
                 <div className="text-right">
-                  <p className="text-sm font-black text-ink">
-                    {brl.format(Number(inst.status === 'paid' ? (inst.paid_amount ?? inst.amount) : inst.amount))}
-                  </p>
+                  <p className="text-sm font-black text-ink">{brl.format(Number(inst.status === 'paid' ? (inst.paid_amount ?? inst.amount) : inst.amount))}</p>
                   <button
-                    onClick={e => {
-                      e.stopPropagation()
+                    onClick={event => {
+                      event.stopPropagation()
                       setReceipt(inst)
                     }}
                     className="mt-1 inline-flex items-center gap-1 text-[10px] font-bold text-muted hover:text-brand"
@@ -416,24 +352,26 @@ export default function BillsPanel() {
         </div>
       </div>
 
-      <BillModal
-        open={open}
-        onClose={() => setOpen(false)}
-        onSaved={() => void load()}
-        bill={editing}
+      <FinanceModal
+        open={financeOpen}
+        onClose={() => setFinanceOpen(false)}
+        bills={bills}
+        loading={loading}
+        onEditBill={bill => {
+          setEditing(bill)
+          setOpen(true)
+        }}
+        onPayment={(bill, installment) => {
+          setPayment({ bill, installment })
+        }}
+        onReceipt={installment => {
+          setReceipt(installment)
+        }}
       />
-      <PaymentModal
-        bill={payment?.bill ?? null}
-        installment={payment?.installment ?? null}
-        onClose={() => setPayment(null)}
-        onChanged={() => void load()}
-      />
-      <ReceiptModal
-        open={!!receipt}
-        installment={receipt}
-        onClose={() => setReceipt(null)}
-        onChanged={() => void refreshReceipt()}
-      />
+
+      <BillModal open={open} onClose={() => setOpen(false)} onSaved={() => void load()} bill={editing} />
+      <PaymentModal bill={payment?.bill ?? null} installment={payment?.installment ?? null} onClose={() => setPayment(null)} onChanged={() => void load()} />
+      <ReceiptModal open={!!receipt} installment={receipt} onClose={() => setReceipt(null)} onChanged={() => void refreshReceipt()} />
     </div>
   )
 }

@@ -1,3 +1,18 @@
+export type Resource = {
+  id: string
+  user_id: string
+  event_id: string | null
+  reminder_id: string | null
+  kind: 'link' | 'file'
+  label: string | null
+  url: string | null
+  file_name: string | null
+  file_path: string | null
+  mime_type: string | null
+  size_bytes: number | null
+  created_at: string
+}
+
 export type AgendaEvent = {
   id: string
   user_id: string
@@ -9,6 +24,7 @@ export type AgendaEvent = {
   rrule: string | null
   created_at: string
   updated_at: string
+  resources?: Resource[]
 }
 
 export type EventInstance = {
@@ -29,6 +45,7 @@ export type Reminder = {
   completed_at: string | null
   created_at: string
   updated_at: string
+  resources?: Resource[]
 }
 
 export type Attachment = {

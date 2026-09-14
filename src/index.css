@@ -1,38 +1,90 @@
 @import "tailwindcss";
 
 :root {
+  --orbia-app: #f6f7fb;
+  --orbia-card: #ffffff;
+  --orbia-surface: #ffffff;
+  --orbia-surface-muted: #f7f8fb;
+  --orbia-surface-strong: #eef1f6;
+  --orbia-ink: #172033;
+  --orbia-muted: #697386;
+  --orbia-line: #e8ebf1;
+  --orbia-line-strong: #dfe3ea;
+  --orbia-brand: #635bff;
+  --orbia-brand-hover: #554ce8;
+  --orbia-brand-soft: #efeeff;
+  --orbia-success: #18a56f;
+  --orbia-success-soft: #effaf6;
+  --orbia-warning: #e7a71e;
+  --orbia-warning-soft: #fff8e8;
+  --orbia-danger: #d85050;
+  --orbia-danger-soft: #fff0f1;
+  --orbia-overlay: rgba(18, 24, 42, .35);
+  --orbia-shadow: 0 10px 30px rgba(23, 32, 51, .05);
+  --orbia-shadow-strong: 0 24px 80px rgba(23, 32, 51, .18);
+  --orbia-scrollbar: #cbd1da;
+
   font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  color: #172033;
-  background: #f6f7fb;
+  color: var(--orbia-ink);
+  background: var(--orbia-app);
   font-synthesis: none;
   text-rendering: optimizeLegibility;
 }
 
+html[data-theme='dark'] {
+  --orbia-app: #0b0e14;
+  --orbia-card: #121722;
+  --orbia-surface: #151b27;
+  --orbia-surface-muted: #1a202d;
+  --orbia-surface-strong: #232a38;
+  --orbia-ink: #f4f6fb;
+  --orbia-muted: #9aa5b5;
+  --orbia-line: #252d3b;
+  --orbia-line-strong: #313a49;
+  --orbia-brand: #7d76ff;
+  --orbia-brand-hover: #918bff;
+  --orbia-brand-soft: #252249;
+  --orbia-success: #3dcc91;
+  --orbia-success-soft: #122c25;
+  --orbia-warning: #f2b943;
+  --orbia-warning-soft: #302812;
+  --orbia-danger: #ff7373;
+  --orbia-danger-soft: #35191d;
+  --orbia-overlay: rgba(2, 4, 9, .62);
+  --orbia-shadow: 0 12px 34px rgba(0, 0, 0, .24);
+  --orbia-shadow-strong: 0 30px 90px rgba(0, 0, 0, .5);
+  --orbia-scrollbar: #495365;
+}
+
 * { box-sizing: border-box; }
-html { color-scheme: light; }
+html { color-scheme: light; background: var(--orbia-app); }
+html[data-theme='dark'] { color-scheme: dark; }
 html, body, #root { width: 100%; min-width: 320px; min-height: 100%; }
-body { margin: 0; min-height: 100dvh; }
+body { margin: 0; min-height: 100dvh; background: var(--orbia-app); color: var(--orbia-ink); transition: background-color .2s ease, color .2s ease; }
 button, input, select, textarea { font: inherit; }
 button { cursor: pointer; }
 
 @theme {
-  --color-app: #f6f7fb;
-  --color-card: #ffffff;
-  --color-ink: #172033;
-  --color-muted: #697386;
-  --color-line: #e8ebf1;
-  --color-brand: #635bff;
-  --color-brand-soft: #efeeff;
-  --color-success: #18a56f;
-  --color-warning: #e7a71e;
-  --color-danger: #d85050;
+  --color-app: var(--orbia-app);
+  --color-card: var(--orbia-card);
+  --color-ink: var(--orbia-ink);
+  --color-muted: var(--orbia-muted);
+  --color-line: var(--orbia-line);
+  --color-brand: var(--orbia-brand);
+  --color-brand-soft: var(--orbia-brand-soft);
+  --color-success: var(--orbia-success);
+  --color-warning: var(--orbia-warning);
+  --color-danger: var(--orbia-danger);
 }
 
+.surface { background: var(--orbia-surface); }
+.surface-muted { background: var(--orbia-surface-muted); }
+
 .card {
-  background: rgba(255,255,255,.94);
-  border: 1px solid #e8ebf1;
+  background: color-mix(in srgb, var(--orbia-card) 94%, transparent);
+  border: 1px solid var(--orbia-line);
   border-radius: 24px;
-  box-shadow: 0 10px 30px rgba(23,32,51,.05);
+  box-shadow: var(--orbia-shadow);
 }
 
 .icon-button {
@@ -41,12 +93,12 @@ button { cursor: pointer; }
   width: 38px;
   height: 38px;
   border-radius: 12px;
-  border: 1px solid #e8ebf1;
-  background: #fff;
-  color: #354052;
+  border: 1px solid var(--orbia-line);
+  background: var(--orbia-surface);
+  color: var(--orbia-ink);
   transition: .18s ease;
 }
-.icon-button:hover { background: #f5f6fa; transform: translateY(-1px); }
+.icon-button:hover { background: var(--orbia-surface-muted); transform: translateY(-1px); }
 
 .primary-button {
   display: inline-flex;
@@ -57,12 +109,12 @@ button { cursor: pointer; }
   border-radius: 13px;
   border: 0;
   padding: 0 16px;
-  background: #635bff;
+  background: var(--orbia-brand);
   color: white;
   font-weight: 700;
-  box-shadow: 0 8px 20px rgba(99,91,255,.22);
+  box-shadow: 0 8px 20px color-mix(in srgb, var(--orbia-brand) 28%, transparent);
 }
-.primary-button:hover { background: #554ce8; }
+.primary-button:hover { background: var(--orbia-brand-hover); }
 .primary-button:disabled { opacity: .55; cursor: not-allowed; }
 
 .secondary-button {
@@ -72,34 +124,35 @@ button { cursor: pointer; }
   gap: 8px;
   min-height: 42px;
   border-radius: 13px;
-  border: 1px solid #e8ebf1;
+  border: 1px solid var(--orbia-line);
   padding: 0 16px;
-  background: #fff;
-  color: #354052;
+  background: var(--orbia-surface);
+  color: var(--orbia-ink);
   font-weight: 700;
 }
-.secondary-button:hover { background: #f8f9fb; }
+.secondary-button:hover { background: var(--orbia-surface-muted); }
 
 .field { display: grid; gap: 7px; }
-.field label { font-size: 12px; color: #697386; font-weight: 700; }
+.field label { font-size: 12px; color: var(--orbia-muted); font-weight: 700; }
 .input, .select, .textarea {
   width: 100%;
   border-radius: 13px;
-  border: 1px solid #dfe3ea;
-  background: #fff;
-  color: #172033;
+  border: 1px solid var(--orbia-line-strong);
+  background: var(--orbia-surface);
+  color: var(--orbia-ink);
   padding: 11px 12px;
   outline: none;
 }
+.input::placeholder, .textarea::placeholder { color: var(--orbia-muted); }
 .input:focus, .select:focus, .textarea:focus {
-  border-color: #8e88ff;
-  box-shadow: 0 0 0 3px rgba(99,91,255,.1);
+  border-color: color-mix(in srgb, var(--orbia-brand) 70%, white);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--orbia-brand) 12%, transparent);
 }
 .textarea { min-height: 90px; resize: vertical; }
 
 .scrollbar-thin {
   scrollbar-width: thin;
-  scrollbar-color: #cbd1da transparent;
+  scrollbar-color: var(--orbia-scrollbar) transparent;
 }
 
 .feedback {
@@ -108,17 +161,88 @@ button { cursor: pointer; }
   font-size: 14px;
   line-height: 1.45;
 }
-.feedback-error { background: #fff2f2; color: #d85050; }
-.feedback-success { background: #edf9f4; color: #14835a; }
-.feedback-info { background: #f1f3ff; color: #554ce8; }
+.feedback-error { background: var(--orbia-danger-soft); color: var(--orbia-danger); }
+.feedback-success { background: var(--orbia-success-soft); color: var(--orbia-success); }
+.feedback-info { background: var(--orbia-brand-soft); color: var(--orbia-brand); }
 
-/*
- * Desktop workspace
- * -----------------
- * The application owns the viewport. The browser page itself does not scroll;
- * panels that can grow (agenda, bills and reminders) manage their own scrolling.
- * This prevents nested page overflow while keeping the dashboard fully visible.
- */
+.modal-backdrop { background: var(--orbia-overlay); }
+.modal-panel {
+  border-color: color-mix(in srgb, var(--orbia-line) 85%, transparent);
+  background: var(--orbia-card);
+  box-shadow: var(--orbia-shadow-strong);
+}
+.modal-header {
+  border-color: var(--orbia-line);
+  background: color-mix(in srgb, var(--orbia-card) 94%, transparent);
+}
+
+.list-row:hover,
+.finance-table-row:hover { background: var(--orbia-surface-muted); }
+
+.metric-paid { background: var(--orbia-success-soft); }
+.metric-open { background: var(--orbia-warning-soft); }
+.metric-card,
+.finance-card,
+.resource-row,
+.resource-draft,
+.resource-chip,
+.search-field { background: var(--orbia-surface); }
+.segmented-control { background: var(--orbia-surface-strong); }
+.segmented-active { background: var(--orbia-surface); }
+.nav-mini {
+  display: grid;
+  height: 32px;
+  width: 32px;
+  place-items: center;
+  border-radius: 8px;
+  color: var(--orbia-muted);
+  transition: .18s ease;
+}
+.nav-mini:hover { background: var(--orbia-surface-muted); color: var(--orbia-ink); }
+
+.review-banner { border-color: color-mix(in srgb, var(--orbia-warning) 34%, var(--orbia-line)); background: var(--orbia-warning-soft); }
+.review-banner.is-active { border-color: color-mix(in srgb, var(--orbia-warning) 68%, var(--orbia-line)); }
+.payment-review { border-color: #d8b647; background: var(--orbia-warning-soft); color: var(--orbia-warning); }
+.payment-late { border-color: var(--orbia-danger); background: var(--orbia-danger-soft); }
+.payment-pending { border-color: color-mix(in srgb, var(--orbia-warning) 55%, var(--orbia-line)); background: var(--orbia-warning-soft); }
+
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  border-radius: 999px;
+  padding: 0 9px;
+  font-size: 10px;
+  font-weight: 800;
+}
+.status-paid { background: var(--orbia-success-soft); color: var(--orbia-success); }
+.status-pending { background: var(--orbia-warning-soft); color: var(--orbia-warning); }
+
+.agenda-days-header,
+.agenda-sticky-corner,
+.agenda-hours,
+.agenda-day { background: color-mix(in srgb, var(--orbia-card) 96%, transparent); }
+.agenda-day-today { background: color-mix(in srgb, var(--orbia-brand-soft) 36%, var(--orbia-card)); }
+
+/* Keep legacy hard-coded light surfaces readable while the project migrates fully to semantic tokens. */
+html[data-theme='dark'] .bg-white,
+html[data-theme='dark'] [class*="bg-white/"] { background-color: var(--orbia-surface) !important; }
+html[data-theme='dark'] [class*="bg-[#fafbff]"],
+html[data-theme='dark'] [class*="bg-[#fafaff]"],
+html[data-theme='dark'] [class*="bg-[#f8f9fb]"],
+html[data-theme='dark'] [class*="bg-[#f5f6f8]"],
+html[data-theme='dark'] [class*="bg-[#f4f5f8]"],
+html[data-theme='dark'] [class*="bg-[#f3f5f8]"] { background-color: var(--orbia-surface-muted) !important; }
+html[data-theme='dark'] [class*="bg-[#effaf6]"] { background-color: var(--orbia-success-soft) !important; }
+html[data-theme='dark'] [class*="bg-[#fff8e8]"],
+html[data-theme='dark'] [class*="bg-[#fff8df]"],
+html[data-theme='dark'] [class*="bg-[#fffaf0]"],
+html[data-theme='dark'] [class*="bg-[#fff6d9]"],
+html[data-theme='dark'] [class*="bg-[#fff9df]"] { background-color: var(--orbia-warning-soft) !important; }
+html[data-theme='dark'] [class*="bg-[#fff2f2]"],
+html[data-theme='dark'] [class*="bg-[#fff0f1]"] { background-color: var(--orbia-danger-soft) !important; }
+html[data-theme='dark'] [class*="bg-[#f1f3ff]"] { background-color: var(--orbia-brand-soft) !important; }
+
 @media (min-width: 1024px) {
   html,
   body,
@@ -138,9 +262,7 @@ button { cursor: pointer; }
     overflow: hidden;
   }
 
-  .orbia-header {
-    flex: 0 0 auto;
-  }
+  .orbia-header { flex: 0 0 auto; }
 
   .orbia-dashboard {
     flex: 1 1 auto;
@@ -177,15 +299,9 @@ button { cursor: pointer; }
 
   .bills-list-shell,
   .bills-list,
-  .reminders-list {
-    min-height: 0;
-  }
+  .reminders-list { min-height: 0; }
 }
 
-/*
- * Tablet/mobile return to normal document flow. A page scrollbar is desirable
- * here because panels stack vertically and touch scrolling should feel native.
- */
 @media (max-width: 1023px) {
   html,
   body,
@@ -195,9 +311,7 @@ button { cursor: pointer; }
     overflow-y: auto;
   }
 
-  .orbia-shell {
-    min-height: 100dvh;
-  }
+  .orbia-shell { min-height: 100dvh; }
 
   .orbia-sidebar {
     display: grid;
@@ -209,29 +323,20 @@ button { cursor: pointer; }
     min-height: 520px;
   }
 
-  .bills-list {
-    max-height: 420px;
-  }
-
-  .reminders-list {
-    max-height: 360px;
-  }
+  .bills-list { max-height: 420px; }
+  .reminders-list { max-height: 360px; }
 }
 
 @media (max-width: 640px) {
   .card { border-radius: 18px; }
-
-  .agenda-scroll {
-    min-height: 480px;
-  }
+  .agenda-scroll { min-height: 480px; }
 }
 
-/* Campos de plano bloqueados durante a edição: visualmente deixam claro que são somente leitura. */
 .input:disabled,
 .select:disabled {
   cursor: not-allowed;
-  border-color: #e6e8ee;
-  background: #f5f6f8;
-  color: #8a93a3;
+  border-color: var(--orbia-line);
+  background: var(--orbia-surface-muted);
+  color: var(--orbia-muted);
   box-shadow: none;
 }

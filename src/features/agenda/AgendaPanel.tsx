@@ -10,7 +10,7 @@ import {
   subWeeks,
 } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
-import { ChevronLeft, ChevronRight, Plus } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Link2, Paperclip, Plus } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/contexts/AuthContext'
 import { eventsForDay, expandEvents, layoutOverlaps, minutesOfDay } from '@/lib/calendar'
@@ -39,7 +39,7 @@ export default function AgendaPanel() {
     const to = addWeeks(endOfWeek(weekStart, { weekStartsOn: 0 }), 1).toISOString()
     const { data, error } = await supabase
       .from('events')
-      .select('*')
+      .select('*, resources(*)')
       .or(`rrule.not.is.null,and(start_at.lte.${to},end_at.gte.${from})`)
       .order('start_at')
 
@@ -65,6 +65,11 @@ export default function AgendaPanel() {
         { event: '*', schema: 'public', table: 'events', filter: `user_id=eq.${user.id}` },
         () => void load(),
       )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'resources', filter: `user_id=eq.${user.id}` },
+        () => void load(),
+      )
       .subscribe()
 
     return () => {
@@ -73,15 +78,14 @@ export default function AgendaPanel() {
   }, [user, load])
 
   const days = useMemo(
-    () => Array.from({ length: 7 }, (_, i) => addDays(weekStart, i)),
+    () => Array.from({ length: 7 }, (_, index) => addDays(weekStart, index)),
     [weekStart],
   )
   const instances = useMemo(() => expandEvents(events, weekStart), [events, weekStart])
   const hours = useMemo(
-    () => Array.from({ length: END_HOUR - START_HOUR + 1 }, (_, i) => START_HOUR + i),
+    () => Array.from({ length: END_HOUR - START_HOUR + 1 }, (_, index) => START_HOUR + index),
     [],
   )
-
   const weekLabel = `${format(weekStart, "d 'de' MMM.", { locale: ptBR })} — ${format(
     addDays(weekStart, 6),
     "d 'de' MMM. 'de' yyyy",
@@ -100,10 +104,10 @@ export default function AgendaPanel() {
     setModal(true)
   }
 
-  function clickDay(e: React.MouseEvent<HTMLDivElement>, day: Date) {
-    if ((e.target as HTMLElement).closest('[data-event]')) return
-    const rect = e.currentTarget.getBoundingClientRect()
-    const y = e.clientY - rect.top
+  function clickDay(event: React.MouseEvent<HTMLDivElement>, day: Date) {
+    if ((event.target as HTMLElement).closest('[data-event]')) return
+    const rect = event.currentTarget.getBoundingClientRect()
+    const y = event.clientY - rect.top
     const mins = Math.round(((y / HOUR_HEIGHT) * 60) / 15) * 15 + START_HOUR * 60
     const date = new Date(day)
     date.setHours(Math.floor(mins / 60), mins % 60, 0, 0)
@@ -124,10 +128,10 @@ export default function AgendaPanel() {
           >
             Hoje
           </button>
-          <button className="icon-button" onClick={() => setWeekStart(v => subWeeks(v, 1))}>
+          <button className="icon-button" onClick={() => setWeekStart(value => subWeeks(value, 1))} aria-label="Semana anterior">
             <ChevronLeft size={18} />
           </button>
-          <button className="icon-button" onClick={() => setWeekStart(v => addWeeks(v, 1))}>
+          <button className="icon-button" onClick={() => setWeekStart(value => addWeeks(value, 1))} aria-label="Próxima semana">
             <ChevronRight size={18} />
           </button>
           <button className="primary-button" onClick={() => openNew()}>
@@ -144,20 +148,13 @@ export default function AgendaPanel() {
 
       <div className="agenda-scroll scrollbar-thin min-h-0 overflow-auto">
         <div className="min-w-[940px]">
-          <div className="sticky top-0 z-30 grid grid-cols-[72px_repeat(7,minmax(118px,1fr))] border-b border-line bg-white/95 backdrop-blur">
-            <div className="sticky left-0 z-40 bg-white/95" />
+          <div className="agenda-days-header sticky top-0 z-30 grid grid-cols-[72px_repeat(7,minmax(118px,1fr))] border-b border-line backdrop-blur">
+            <div className="agenda-sticky-corner sticky left-0 z-40" />
             {days.map(day => {
               const today = isSameDay(day, now)
               return (
-                <div
-                  key={day.toISOString()}
-                  className={`px-2 py-3 text-center ${today ? 'bg-brand-soft/60' : ''}`}
-                >
-                  <div
-                    className={`mx-auto grid h-9 w-9 place-items-center rounded-xl text-sm font-black ${
-                      today ? 'bg-brand text-white' : 'text-ink'
-                    }`}
-                  >
+                <div key={day.toISOString()} className={`px-2 py-3 text-center ${today ? 'bg-brand-soft/60' : ''}`}>
+                  <div className={`mx-auto grid h-9 w-9 place-items-center rounded-xl text-sm font-black ${today ? 'bg-brand text-white' : 'text-ink'}`}>
                     {format(day, 'd')}
                   </div>
                   <div className="mt-1 text-[11px] font-bold uppercase tracking-wide text-muted">
@@ -170,16 +167,16 @@ export default function AgendaPanel() {
 
           <div className="grid grid-cols-[72px_repeat(7,minmax(118px,1fr))]">
             <div
-              className="sticky left-0 z-20 border-r border-line bg-white"
+              className="agenda-hours sticky left-0 z-20 border-r border-line"
               style={{ height: (END_HOUR - START_HOUR) * HOUR_HEIGHT }}
             >
-              {hours.slice(0, -1).map((h, i) => (
+              {hours.slice(0, -1).map((hour, index) => (
                 <div
-                  key={h}
+                  key={hour}
                   className="absolute right-3 text-[11px] font-semibold text-muted"
-                  style={{ top: i * HOUR_HEIGHT - 7 }}
+                  style={{ top: index === 0 ? 6 : index * HOUR_HEIGHT - 7 }}
                 >
-                  {String(h).padStart(2, '0')}:00
+                  {String(hour).padStart(2, '0')}:00
                 </div>
               ))}
             </div>
@@ -187,19 +184,18 @@ export default function AgendaPanel() {
             {days.map(day => {
               const laid = layoutOverlaps(eventsForDay(instances, day))
               const isToday = isSameDay(day, now)
-
               return (
                 <div
                   key={day.toISOString()}
-                  onClick={e => clickDay(e, day)}
-                  className={`relative border-r border-line ${isToday ? 'bg-brand-soft/20' : 'bg-white'}`}
+                  onClick={event => clickDay(event, day)}
+                  className={`agenda-day relative border-r border-line ${isToday ? 'agenda-day-today' : ''}`}
                   style={{ height: (END_HOUR - START_HOUR) * HOUR_HEIGHT }}
                 >
-                  {hours.slice(0, -1).map((h, i) => (
+                  {hours.slice(0, -1).map((hour, index) => (
                     <div
-                      key={h}
+                      key={hour}
                       className="absolute left-0 right-0 border-t border-line/80"
-                      style={{ top: i * HOUR_HEIGHT }}
+                      style={{ top: index * HOUR_HEIGHT }}
                     />
                   ))}
 
@@ -224,14 +220,16 @@ export default function AgendaPanel() {
                     const gap = 3
                     const width = `calc(${100 / item.columns}% - ${gap + 1}px)`
                     const left = `calc(${(100 / item.columns) * item.column}% + ${gap / 2}px)`
-                    const c = item.source.color || colors[item.column % colors.length]
+                    const color = item.source.color || colors[item.column % colors.length]
+                    const fileCount = (item.source.resources ?? []).filter(resource => resource.kind === 'file').length
+                    const linkCount = (item.source.resources ?? []).filter(resource => resource.kind === 'link').length
 
                     return (
                       <button
                         data-event
                         key={item.key}
-                        onClick={e => {
-                          e.stopPropagation()
+                        onClick={event => {
+                          event.stopPropagation()
                           setEditing(item.source)
                           setInitialStart(null)
                           setModal(true)
@@ -242,9 +240,9 @@ export default function AgendaPanel() {
                           height: height - 4,
                           left,
                           width,
-                          background: `${c}18`,
-                          borderColor: `${c}45`,
-                          color: c,
+                          background: `color-mix(in srgb, ${color} 10%, var(--orbia-card))`,
+                          borderColor: `color-mix(in srgb, ${color} 34%, transparent)`,
+                          color,
                         }}
                         title={`${item.source.title} • ${format(item.start, 'HH:mm')}–${format(item.end, 'HH:mm')}`}
                       >
@@ -252,6 +250,12 @@ export default function AgendaPanel() {
                         <p className="mt-0.5 truncate text-[10px] font-semibold opacity-75">
                           {format(item.start, 'HH:mm')}–{format(item.end, 'HH:mm')}
                         </p>
+                        {(fileCount > 0 || linkCount > 0) && (
+                          <span className="mt-1 flex items-center gap-2 text-[9px] font-bold opacity-75">
+                            {fileCount > 0 && <span className="inline-flex items-center gap-0.5"><Paperclip size={9} />{fileCount}</span>}
+                            {linkCount > 0 && <span className="inline-flex items-center gap-0.5"><Link2 size={9} />{linkCount}</span>}
+                          </span>
+                        )}
                       </button>
                     )
                   })}
