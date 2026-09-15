@@ -94,7 +94,19 @@ export default function EventModal({ open, onClose, onSaved, event, initialStart
 
     let rrule: string | null = null
     if (repeat !== 'none') {
-      const options: ConstructorParameters<typeof RRule>[0] = { dtstart: startAt }
+      // RRULE must use the local wall-clock fields as a floating UTC date.
+      // Using the real UTC instant can move late-night events to the next UTC day
+      // and make BYDAY disagree with the date selected by the user.
+      const recurrenceStart = new Date(Date.UTC(
+        startAt.getFullYear(),
+        startAt.getMonth(),
+        startAt.getDate(),
+        startAt.getHours(),
+        startAt.getMinutes(),
+        startAt.getSeconds(),
+        startAt.getMilliseconds(),
+      ))
+      const options: ConstructorParameters<typeof RRule>[0] = { dtstart: recurrenceStart }
       if (repeat === 'daily') options.freq = RRule.DAILY
       if (repeat === 'monthly') options.freq = RRule.MONTHLY
       if (repeat === 'weekly') {

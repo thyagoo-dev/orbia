@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   addDays,
   addWeeks,
@@ -10,15 +10,17 @@ import {
   subWeeks,
 } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
-import { ChevronLeft, ChevronRight, Link2, Paperclip, Plus } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Link2, ListTree, Paperclip, Plus } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/contexts/AuthContext'
 import { eventsForDay, expandEvents, layoutOverlaps, minutesOfDay } from '@/lib/calendar'
 import type { AgendaEvent } from '@/types'
 import EventModal from './EventModal'
+import AgendaCentralModal from './AgendaCentralModal'
 
-const START_HOUR = 5
-const END_HOUR = 23
+const DAY_START_HOUR = 0
+const DAY_END_HOUR = 24
+const DEFAULT_SCROLL_HOUR = 5
 const HOUR_HEIGHT = 62
 const colors = ['#635bff', '#0ea5a4', '#f59e0b', '#ec4899', '#3b82f6', '#16a34a']
 
@@ -28,9 +30,12 @@ export default function AgendaPanel() {
   const [events, setEvents] = useState<AgendaEvent[]>([])
   const [loading, setLoading] = useState(true)
   const [modal, setModal] = useState(false)
+  const [centralOpen, setCentralOpen] = useState(false)
+  const [centralRefreshKey, setCentralRefreshKey] = useState(0)
   const [editing, setEditing] = useState<AgendaEvent | null>(null)
   const [initialStart, setInitialStart] = useState<Date | null>(null)
   const [now, setNow] = useState(() => new Date())
+  const agendaScrollRef = useRef<HTMLDivElement>(null)
 
   const load = useCallback(async () => {
     if (!user) return
@@ -83,7 +88,7 @@ export default function AgendaPanel() {
   )
   const instances = useMemo(() => expandEvents(events, weekStart), [events, weekStart])
   const hours = useMemo(
-    () => Array.from({ length: END_HOUR - START_HOUR + 1 }, (_, index) => START_HOUR + index),
+    () => Array.from({ length: DAY_END_HOUR - DAY_START_HOUR + 1 }, (_, index) => DAY_START_HOUR + index),
     [],
   )
   const weekLabel = `${format(weekStart, "d 'de' MMM.", { locale: ptBR })} — ${format(
@@ -92,11 +97,17 @@ export default function AgendaPanel() {
     { locale: ptBR },
   )}`
 
-  const showNow =
-    isSameWeek(now, weekStart, { weekStartsOn: 0 }) &&
-    minutesOfDay(now) >= START_HOUR * 60 &&
-    minutesOfDay(now) <= END_HOUR * 60
-  const nowTop = ((minutesOfDay(now) - START_HOUR * 60) / 60) * HOUR_HEIGHT
+  const showNow = isSameWeek(now, weekStart, { weekStartsOn: 0 })
+  const nowTop = ((minutesOfDay(now) - DAY_START_HOUR * 60) / 60) * HOUR_HEIGHT
+
+  useEffect(() => {
+    const frame = window.requestAnimationFrame(() => {
+      if (!agendaScrollRef.current) return
+      agendaScrollRef.current.scrollTop = (DEFAULT_SCROLL_HOUR - DAY_START_HOUR) * HOUR_HEIGHT
+    })
+
+    return () => window.cancelAnimationFrame(frame)
+  }, [weekStart])
 
   function openNew(date?: Date) {
     setEditing(null)
@@ -108,7 +119,8 @@ export default function AgendaPanel() {
     if ((event.target as HTMLElement).closest('[data-event]')) return
     const rect = event.currentTarget.getBoundingClientRect()
     const y = event.clientY - rect.top
-    const mins = Math.round(((y / HOUR_HEIGHT) * 60) / 15) * 15 + START_HOUR * 60
+    const rawMinutes = Math.round(((y / HOUR_HEIGHT) * 60) / 15) * 15 + DAY_START_HOUR * 60
+    const mins = Math.min(DAY_END_HOUR * 60 - 15, Math.max(DAY_START_HOUR * 60, rawMinutes))
     const date = new Date(day)
     date.setHours(Math.floor(mins / 60), mins % 60, 0, 0)
     openNew(date)
@@ -117,10 +129,13 @@ export default function AgendaPanel() {
   return (
     <div className="agenda-card card overflow-hidden">
       <header className="flex flex-wrap items-center justify-between gap-3 border-b border-line px-4 py-4 sm:px-5">
-        <div>
+        <button type="button" className="group text-left" onClick={() => setCentralOpen(true)} title="Abrir central da agenda">
           <p className="text-xs font-bold uppercase tracking-[.16em] text-brand">Sua semana</p>
-          <h2 className="mt-1 text-xl font-black text-ink">Agenda</h2>
-        </div>
+          <span className="mt-1 flex items-center gap-2 text-xl font-black text-ink">
+            Agenda
+            <ListTree size={16} className="text-muted transition group-hover:text-brand" />
+          </span>
+        </button>
         <div className="flex items-center gap-2">
           <button
             className="secondary-button hidden sm:inline-flex"
@@ -146,7 +161,7 @@ export default function AgendaPanel() {
         {loading && <span className="text-xs text-muted">Sincronizando…</span>}
       </div>
 
-      <div className="agenda-scroll scrollbar-thin min-h-0 overflow-auto">
+      <div ref={agendaScrollRef} className="agenda-scroll scrollbar-thin min-h-0 overflow-auto">
         <div className="min-w-[940px]">
           <div className="agenda-days-header sticky top-0 z-30 grid grid-cols-[72px_repeat(7,minmax(118px,1fr))] border-b border-line backdrop-blur">
             <div className="agenda-sticky-corner sticky left-0 z-40" />
@@ -168,7 +183,7 @@ export default function AgendaPanel() {
           <div className="grid grid-cols-[72px_repeat(7,minmax(118px,1fr))]">
             <div
               className="agenda-hours sticky left-0 z-20 border-r border-line"
-              style={{ height: (END_HOUR - START_HOUR) * HOUR_HEIGHT }}
+              style={{ height: (DAY_END_HOUR - DAY_START_HOUR) * HOUR_HEIGHT }}
             >
               {hours.slice(0, -1).map((hour, index) => (
                 <div
@@ -189,7 +204,7 @@ export default function AgendaPanel() {
                   key={day.toISOString()}
                   onClick={event => clickDay(event, day)}
                   className={`agenda-day relative border-r border-line ${isToday ? 'agenda-day-today' : ''}`}
-                  style={{ height: (END_HOUR - START_HOUR) * HOUR_HEIGHT }}
+                  style={{ height: (DAY_END_HOUR - DAY_START_HOUR) * HOUR_HEIGHT }}
                 >
                   {hours.slice(0, -1).map((hour, index) => (
                     <div
@@ -211,11 +226,11 @@ export default function AgendaPanel() {
                   )}
 
                   {laid.map(item => {
-                    const startM = Math.max(START_HOUR * 60, minutesOfDay(item.start))
-                    const endM = Math.min(END_HOUR * 60, minutesOfDay(item.end))
-                    if (endM <= START_HOUR * 60 || startM >= END_HOUR * 60) return null
+                    const startM = Math.max(DAY_START_HOUR * 60, minutesOfDay(item.start))
+                    const endM = Math.min(DAY_END_HOUR * 60, minutesOfDay(item.end))
+                    if (endM <= DAY_START_HOUR * 60 || startM >= DAY_END_HOUR * 60) return null
 
-                    const top = ((startM - START_HOUR * 60) / 60) * HOUR_HEIGHT
+                    const top = ((startM - DAY_START_HOUR * 60) / 60) * HOUR_HEIGHT
                     const height = Math.max(24, ((endM - startM) / 60) * HOUR_HEIGHT)
                     const gap = 3
                     const width = `calc(${100 / item.columns}% - ${gap + 1}px)`
@@ -266,10 +281,25 @@ export default function AgendaPanel() {
         </div>
       </div>
 
+      <AgendaCentralModal
+        open={centralOpen}
+        onClose={() => setCentralOpen(false)}
+        onCreate={() => openNew()}
+        onEdit={event => {
+          setEditing(event)
+          setInitialStart(null)
+          setModal(true)
+        }}
+        refreshKey={centralRefreshKey}
+      />
+
       <EventModal
         open={modal}
         onClose={() => setModal(false)}
-        onSaved={() => void load()}
+        onSaved={() => {
+          void load()
+          setCentralRefreshKey(value => value + 1)
+        }}
         event={editing}
         initialStart={initialStart}
       />

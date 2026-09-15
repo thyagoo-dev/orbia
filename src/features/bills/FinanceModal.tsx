@@ -91,7 +91,7 @@ export default function FinanceModal({
   }
 
   return (
-    <Modal open={open} onClose={onClose} title="Central financeira" maxWidth="max-w-6xl">
+    <Modal open={open} onClose={onClose} title="Central financeira" maxWidth="max-w-6xl" layout="workspace">
       <div className="grid gap-5">
         <div className="grid gap-3 sm:grid-cols-3">
           <div className="metric-card rounded-2xl border border-line p-4">
